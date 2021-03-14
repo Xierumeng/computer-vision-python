@@ -3,12 +3,32 @@ Geolocation module to map pixel coordinates to geographical coordinates
 """
 
 import numpy as np
+import threading
+import queue
 
 
 class Geolocation:
     """
     Locates the geographical position of a set of pixels
     """
+
+    # Global (static) class members
+
+    # Stop request for multithreading
+    stopRequested = False
+    stopLock = threading.Lock()
+
+    # These are constants and should not be changed while working
+    cameraResolution = np.array([1000, 1000])
+    referencePixels = np.array([[0, 0],
+                                [0, 1000],
+                                [1000, 0],
+                                [1000, 1000]])
+
+    # External accesses must be read-only
+    locations = []
+    locationsLock = threading.Lock()
+
 
     # TODO Class members
     def __init__(self):
@@ -19,26 +39,101 @@ class Geolocation:
         -------
         Geolocation
         """
+        # Input to convert_input()
+        # TODO input interfacing with the previous module
+        # self.__rawPlaneDataStruct
 
         # Input to gather_point_pairs()
         self.__cameraOrigin3o = np.array([0.0, 0.0, 2.0])
         self.__cameraDirection3c = np.array([0.0, 0.0, -1.0])
         self.__cameraOrientation3u = np.array([1.0, 0.0, 0.0])
         self.__cameraOrientation3v = 1 * np.cross(self.__cameraDirection3c, self.__cameraOrientation3u)
-        self.__cameraResolution = np.array([1000, 1000])  # TODO Make global?
-        self.__referencePixels = np.array([[0, 0],
-                                           [0, 1000],
-                                           [1000, 0],
-                                           [1000, 1000]])
 
-        # Output of gather_point_pairs()
         # Input to calculate_pixel_to_geo_mapping()
         self.__pixelToGeoPairs = np.array([[[0, 0], [0, 0]],
                                            [[1, 1], [1, 1]],
                                            [[2, 2], [2, 2]],
                                            [[3, 3], [3, 3]]])
 
+        # Input to map_location_from_pixel()
+        self.__pixelToGeoMap = np.array([1.0, 0.0, 0.0],
+                                        [0.0, 1.0, 0.0],
+                                        [0.0, 0.0, 1.0])
+
+        # TODO Input to construct_spread()
+        self.__centreGeoPoint = np.array([[0.0, 0.0]])
+        self.__cornerGeoPoints = np.array([[1.0, 0.0],
+                                           [0.0, 1.0],
+                                           [-1.0, 0.0],
+                                           [0.0, -1.0]])
+
+        # Output
+        self.__locationGuess = np.array([0.0, 0.0], 4.0, 0.8)
+
         return
+
+
+    def run_locator(self, pipelineIn):
+        """
+        Repeatedly runs the geolocation from start to end
+        until requested to stop
+        No unit tests
+        TODO Analysis part to add, input interfacing
+        Returns
+        -------
+
+        """
+
+        while (True):
+
+            # Check for a stop request
+            self.stopLock.acquire()
+            if (self.stopRequested):
+                self.stopLock.release()
+                break
+
+            self.stopLock.release()
+
+            # TODO Get input from the previous module
+            # TODO This will block forever if the pipeline is empty before a stop request!
+            self.__rawPlaneDataStruct = pipelineIn.get()
+
+            # TODO Convert inputs into something usable
+            # self.convert_input()
+
+            # Get corresponding geographical coordinates
+            self.__pixelToGeoPairs = self.gather_point_pairs()
+
+            # TODO Verify no bad collinear points
+            # self.__pixelToGeoPairs = self.check_collinearity()
+            if (self.__pixelToGeoPairs.shape[0] < 4):
+                continue
+
+            # Create the map
+            self.__pixelToGeoMap = self.calculate_pixel_to_geo_mapping()
+
+            # TODO Get the locations
+            # cornerPixels = np.array([self.__rawPlaneDataStruct.pixel[0],
+            #                          self.__rawPlaneDataStruct.pixel[1],
+            #                          self.__rawPlaneDataStruct.pixel[3], # TODO Numbers
+            #                          self.__rawPlaneDataStruct.pixel[4]])
+            # self.__centreGeoPoint = self.map_location_from_pixel(np.array([self.__rawPlaneDataStruct.pixel[2]) # TODO
+            if (self.__centreGeoPoint.shape[0] != 1):
+                continue
+
+            # self.__cornerGeoPoints = self.map_location_from_pixel(cornerPixels)
+
+            # TODO Find the best radius around the geographical location
+            # confidence = self.__rawPlaneDataStruct.confidence
+            # self.__locationGuess = np.array([self.__centreGeoPoint, self.construct_spread(), confidence])
+
+            # Insert into the list
+            self.locationsLock.acquire()
+            self.locations.append(self.__locationGuess)
+            self.locationsLock.release()
+
+        return
+
 
     # TODO Placeholder, add functionality once we figure out how to convert raw plane data
     def convert_input(self):
