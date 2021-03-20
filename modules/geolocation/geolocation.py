@@ -56,9 +56,9 @@ class Geolocation:
                                            [[3, 3], [3, 3]]])
 
         # Input to map_location_from_pixel()
-        self.__pixelToGeoMap = np.array([1.0, 0.0, 0.0],
-                                        [0.0, 1.0, 0.0],
-                                        [0.0, 0.0, 1.0])
+        self.__pixelToGeoMap = np.array([[1.0, 0.0, 0.0],
+                                         [0.0, 1.0, 0.0],
+                                         [0.0, 0.0, 1.0]])
 
         # TODO Input to construct_spread()
         self.__centreGeoPoint = np.array([[0.0, 0.0]])
@@ -68,7 +68,7 @@ class Geolocation:
                                            [0.0, -1.0]])
 
         # Output
-        self.__locationGuess = np.array([0.0, 0.0], 4.0, 0.8)
+        self.__locationGuess = np.array([[0.0, 0.0], 4.0, 0.8], dtype=object)
 
         return
 
